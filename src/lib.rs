@@ -10,10 +10,32 @@ mod rocket_sim {
     const G: f32 = -9.81;
 
     #[derive(Copy, Clone, Debug)]
+    #[pyclass]
     struct Vec3f {
         x: f32,
         y: f32,
         z: f32,
+    }
+
+    #[pymethods]
+    impl Vec3f {
+        #[new]
+        pub fn new() -> Self {
+            Self { 
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            }
+        }
+
+        #[staticmethod]
+        pub fn new_defined(x: f32, y: f32, z: f32) -> Self {
+            Self {
+                x,
+                y,
+                z,
+            }
+        }
     }
 
     use std::ops::Add;
@@ -50,6 +72,14 @@ mod rocket_sim {
         }
     }
 
+    impl AddAssign<f32> for Vec3f {
+        fn add_assign(&mut self, rhs: f32) {
+            self.x += rhs;
+            self.y += rhs;
+            self.z += rhs;
+        }
+    }
+
     use std::ops::Mul;
     impl Mul<f32> for Vec3f {
         type Output = Vec3f;
@@ -63,12 +93,54 @@ mod rocket_sim {
         }
     }
 
-    impl Vec3f {
-        pub fn new() -> Self {
+    use std::ops::Div;
+    impl Div<f32> for Vec3f {
+        type Output = Vec3f;
+
+        fn div(self, rhs: f32) -> Self::Output {
             Self {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+            }
+        }
+    }
+
+    use std::ops::MulAssign;
+    impl MulAssign<f32> for Vec3f {
+        fn mul_assign(&mut self, rhs: f32) {
+            self.x *= rhs;
+            self.y *= rhs;
+            self.z *= rhs;
+        }
+    }
+
+    impl Vec3f {
+        pub fn refcross(lhs: &Vec3f, rhs: &Vec3f) -> Vec3f {
+            Vec3f {
+                x: lhs.y * rhs.z - lhs.z * rhs.y,
+                y: lhs.z * rhs.x - lhs.x * rhs.z,
+                z: lhs.x * rhs.y - lhs.y * rhs.x,
+            }
+        }
+    }
+
+    #[pyclass]
+    #[derive(Clone, Copy)]
+    struct MassStruct {
+        dry_mass: f32,
+        wet_mass: f32,
+        mass: f32,
+    }
+
+    #[pymethods]
+    impl MassStruct {
+        #[new]
+        pub fn new(dry_mass: f32, wet_mass: f32) -> Self {
+            Self {
+                dry_mass,
+                wet_mass,
+                mass: wet_mass,
             }
         }
     }
@@ -82,6 +154,68 @@ mod rocket_sim {
         mass: f32,
         thrust: f32,
         time: f32,
+    }
+
+    #[derive(Clone, Copy)]
+    #[pyclass]
+    struct RotateStruct {
+        cp: f32,
+        cg: f32,
+        cmp: f32,
+        drag_coefficient: f32,
+        body_vector: Vec3f,
+        dimensions: Vec3f,
+        inertia_moment: f32,
+        angular_vel: Vec3f,
+        angular_acc: Vec3f,
+        rotational_drag: Vec3f,
+        origin: Vec3f,
+    }
+
+    use pyo3::exceptions::PyValueError;
+    #[pymethods]
+    impl RotateStruct {
+        #[new]
+        pub fn new(
+            cp: f32,
+            cg: f32,
+            cmp: f32,
+            drag_coefficient: f32,
+            dimensions: Vec3f,
+            mass: MassStruct,
+        ) -> Self {
+            Self {
+                cp,
+                cg,
+                cmp,
+                drag_coefficient,
+                dimensions,
+                inertia_moment: (1.0 / 12.0)
+                    * mass.mass
+                    * (dimensions.x.powi(2) + dimensions.y.powi(2)),
+                angular_vel: Vec3f::new(),
+                angular_acc: Vec3f::new(),
+                rotational_drag: Vec3f::new(),
+                body_vector: Vec3f {
+                    x: 0.0,
+                    y: cg - cmp,
+                    z: 0.0,
+                },
+                origin: Vec3f {
+                    x: dimensions.x / 2.0,
+                    y: dimensions.y - cg,
+                    z: dimensions.z / 2.0
+                }
+            }
+        }
+
+        pub fn rotate_physics(&mut self, orientation_vector: &mut Vec3f, thrust_vector: &Vec3f, dt: f32) {
+            let torque = Vec3f::refcross(&self.body_vector, thrust_vector);
+            self.angular_acc = torque / self.inertia_moment;
+            self.angular_vel += self.angular_acc * dt;
+            self.angular_vel = self.angular_vel * 0.98;
+            *orientation_vector += self.angular_vel * dt;
+        }
     }
 
     use std::f32::consts::PI;
@@ -109,21 +243,28 @@ mod rocket_sim {
         pos: Vec3f,
         vel: Vec3f,
         acc: Vec3f,
-        mass: f32,
-        dry_mass: f32,
+        rotational: RotateStruct,
+        mass: MassStruct,
         dm: f32,
         thrust: f32,
         dt: f32,
         dur: i32,
         state_history: Vec<RocketState>,
         powered: bool,
+        thrust_vec: Vec3f,
     }
 
-    use pyo3::exceptions::PyValueError;
     #[pymethods]
     impl Rocket {
         #[new]
-        pub fn new(mass: f32, dry_mass: f32, dm: f32, thrust: f32, dt: f32, dur: i32) -> Self {
+        pub fn new(
+            mass: MassStruct,
+            dm: f32,
+            rotate: RotateStruct,
+            thrust: f32,
+            dt: f32,
+            dur: i32,
+        ) -> Self {
             Self {
                 ang: Vec3f {
                     x: PI / 2.0,
@@ -134,20 +275,21 @@ mod rocket_sim {
                 vel: Vec3f::new(),
                 acc: Vec3f::new(),
                 mass,
-                dry_mass,
                 dm,
                 thrust,
                 dt,
                 dur,
                 state_history: Vec::new(),
                 powered: true,
+                rotational: rotate,
+                thrust_vec: Vec3f::new(),
             }
         }
 
         pub fn print(&self) {
             println!(
                 "{:?} | {:?} | {:?} | {:?}",
-                self.pos, self.vel, self.acc, self.mass,
+                self.pos, self.vel, self.acc, self.mass.mass,
             )
         }
 
@@ -170,21 +312,27 @@ mod rocket_sim {
 
                 let grav_force = Vec3f {
                     x: 0.0,
-                    y: G * self.mass,
+                    y: G * self.mass.mass,
                     z: 0.0,
+                };
+
+                let forward_vec = Vec3f {
+                    x: self.ang.x.cos() * self.ang.y.cos(),
+                    y: self.ang.x.sin(),
+                    z: self.ang.x.cos() * self.ang.y.sin(),
                 };
 
                 let thrust_force = if self.powered {
                     Vec3f {
-                        x: self.thrust * self.ang.x.cos(),
-                        y: self.thrust * self.ang.y.cos(),
-                        z: 0.0,
+                        x: forward_vec.x * self.thrust,
+                        y: forward_vec.y * self.thrust,
+                        z: forward_vec.z * self.thrust,
                     }
                 } else {
                     Vec3f::new()
                 };
 
-                self.acc = (grav_force + thrust_force) * (1.0 / self.mass);
+                self.acc = (grav_force + thrust_force) * (1.0 / self.mass.mass);
                 self.vel += self.acc * self.dt;
                 self.pos += self.vel * self.dt;
 
@@ -200,17 +348,17 @@ mod rocket_sim {
                     pos: self.pos,
                     vel: self.vel,
                     acc: self.acc,
-                    mass: self.mass,
+                    mass: self.mass.mass,
                     thrust: self.thrust,
                     time: i as f32 * self.dt,
                 });
 
-                if self.mass <= self.dry_mass {
+                if self.mass.mass <= self.mass.dry_mass {
                     self.powered = false;
                 }
 
                 if self.powered {
-                    self.mass -= self.dm * self.dt;
+                    self.mass.mass -= self.dm * self.dt;
                 }
             }
         }

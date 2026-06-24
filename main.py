@@ -9,10 +9,21 @@ dm = 2  # kg/s
 thrust = 100  # Newtons
 time_step = 0.05  # 1 / step rate
 duration = 2000  # cycles
+cp = # from top
+cg = #from top
+cmp = #idk what this is
+drag_coefficient = #self explanitory
+width = # x m
+height = # y m
+depth = # z m
+
+mass = test_rocket.MassStruct.new(dry_mass, wet_mass,)
+rotational = test_rocket.RotateStruct.new(cp, cg, cmp, drag_coefficient)
+dimensions = rocket_sim.Vec3f.new()
 
 import matplotlib.pyplot as plt
 
-test = rocket_sim.Rocket(wet_mass, dry_mass, dm, thrust, time_step, duration)
+test = rocket_sim.Rocket(mass, dm, rotational, thrust, time_step, duration)
 test.uncontrolled_sim()
 # test.print_history()
 
