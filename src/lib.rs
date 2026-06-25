@@ -36,7 +36,8 @@ mod rocket_sim {
         }
     }
 
-    // add F32 to struct Vec3f
+    use std::num::NonZeroI32;
+// add F32 to struct Vec3f
     use std::ops::Add;
     impl Add<f32> for Vec3f {
         // Allows the operation for adding to be done with the Vec3f Struct
@@ -328,7 +329,9 @@ mod rocket_sim {
 
         // this is where all the translational magic happens
         pub fn uncontrolled_sim(&mut self) {
+            let mut cycle_tracker: i32 = 0;
             for i in 0..self.dur { // sets the duration to cycle 0 through the defined duration of the simulation
+                cycle_tracker += 1;
                 if self.pos.y < 0.0 { // tests whether the rocket hit the ground. If so, it ends the simulation early
                     break;
                 }
@@ -390,6 +393,7 @@ mod rocket_sim {
                     self.mass.mass -= self.dm * self.dt;
                 }
             }
+            println!("Total Cycles: {}", cycle_tracker);
         }
 
         // this method is used for printing all the relative translational information of the rocket. It's kind of outdated at the moment so...
@@ -446,9 +450,9 @@ mod rocket_sim {
                     _ => Err(PyValueError::new_err("Invalid get_history fetch ID"))?,
                 },
                 3 => match id {
-                    0 => Ok(self.state_history.iter().map(|s| s.ang.x).collect()),
-                    1 => Ok(self.state_history.iter().map(|s| s.ang.y).collect()),
-                    2 => Ok(self.state_history.iter().map(|s| s.ang.z).collect()),
+                    0 => Ok(self.state_history.iter().map(|s| s.ang.x * 57.295).collect()),
+                    1 => Ok(self.state_history.iter().map(|s| s.ang.y * 57.295).collect()),
+                    2 => Ok(self.state_history.iter().map(|s| s.ang.z * 57.295).collect()),
                     _ => Err(PyValueError::new_err("Invalid get_history fetch ID"))?,
                 },
                 4 => Ok(self.state_history.iter().map(|s| s.mass).collect()),
