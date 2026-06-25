@@ -6,9 +6,9 @@ matplotlib.use("Agg")
 
 to_radians = 0.0174533
 
-wet_mass = 1.2  # mass of the rocket w/ all its fuel 
-dry_mass = 0.8  # mass of the rocket w/o all its fuel 
-dm = 0.5  # change in mass of the rocket due to fuel loss in kg/s 
+wet_mass = 1.0  # mass of the rocket w/ all its fuel 
+dry_mass = 0.5  # mass of the rocket w/o all its fuel 
+dm = 0.1  # change in mass of the rocket due to fuel loss in kg/s 
 thrust = 25  # thrust of the rocket motor in Newtons 
 time_step = 0.01  #  time step of the simulation as 1 / cycles per second
 duration = 2000  # maximum duration of the simulation in cycles. Simulation will end early if rocket goes below altitude of 0 meters 
@@ -20,14 +20,15 @@ drag_coefficient = 0.5 # drag coefficient of the rocket in general.
 width = 0.08 # width of the rocket in meters. Basically the diameter 
 height = 1.0 # height of the rocket in meters 
 depth = 0.08 # depth of the rocket in meters. Also basically the diameter 
+rotational_dampening_constant = 0.001 # the dampening constant used in the calculation of the drag torque inacted on the rocket body
 
 mass = rocket_sim.MassStruct(dry_mass, wet_mass,) # initialization of the mass struct for the rocket
 dimensions = rocket_sim.Vec3f() # initialilzation of the rocket dimensions vector used for organization. I had to define it and then change it later because pyo3 was being fussy with having multiple constructors
 dimensions.redefine(width, height, depth)
-rotational = rocket_sim.RotateStruct(cp, cg, cmp, rotational_drag_coefficient, dimensions, mass)
+rotational = rocket_sim.RotateStruct(cp, cg, cmp, rotational_drag_coefficient, dimensions, mass, rotational_dampening_constant)
 
 #starting thrust vector in degrees
-tx = -3
+tx = -10
 ty = 0
 
 in_thrust = rocket_sim.Vec3f()

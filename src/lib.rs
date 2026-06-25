@@ -208,6 +208,7 @@ mod rocket_sim {
         angular_acc: Vec3f, // angular acceleratio vector of the rocket
         rotational_drag: Vec3f, // rotational drag force vector: currently unused
         origin: Vec3f, // origin of rotation of the rocket. Basically just the CG relative to the body dimensions
+        dampening_constant: f32, // the constant that determines the stability of the rocket. Keep this lower for more unstable systems.
     }
     
     // along with the python constructor method, it also has a method to simulate the rotation of the rocket
@@ -222,6 +223,7 @@ mod rocket_sim {
             rotational_drag_coefficient: f32,
             dimensions: Vec3f,
             mass: MassStruct,
+            dampening_constant: f32,
         ) -> Self {
             Self {
                 cp,
@@ -242,17 +244,24 @@ mod rocket_sim {
                     x: dimensions.x / 2.0,
                     y: dimensions.y - cg,
                     z: dimensions.z / 2.0
-                }
+                },
+                dampening_constant,
             }
         }
 
         // method that'll simulate the rotational phsics of the rocket
         pub fn rotate_physics(&mut self, orientation_vector: &mut Vec3f, thrust_vector: &Vec3f, thrust: f32, dt: f32) {
-            let force = *thrust_vector * thrust; // total force vector, multiplying the unit vector known as thrust_vector by the actual thrust
+            let drag_force: Vec3f = Vec3f {
+                x: -0.5 * FLUID_DENSITY * self.rotational_drag_coefficient * self.angular_vel.x.abs() * self.angular_vel.x,
+                y: -0.5 * FLUID_DENSITY * self.rotational_drag_coefficient * self.angular_vel.y.abs() * self.angular_vel.y,
+                z: -0.5 * FLUID_DENSITY * self.rotational_drag_coefficient * self.angular_vel.z.abs() * self.angular_vel.z,
+            };
+            let force = drag_force + (*thrust_vector * thrust); // total force vector, multiplying the unit vector known as thrust_vector by the actual thrust
             let torque = Vec3f::refcross(&self.body_vector, &force); // takes the torque between the rocket body and the thrust force
-            self.angular_acc = torque / self.inertia_moment; // gets angular acceleration
+            let drag_torque = self.angular_vel * - self.dampening_constant; // 0.001 is the dampening constant K. Changing this will change the stability fo the rocket
+            let total_torque = torque + drag_torque;
+            self.angular_acc = total_torque / self.inertia_moment; // gets angular acceleration
             self.angular_vel += self.angular_acc * dt; // then gets angular velocity
-            self.angular_vel = self.angular_vel * (1.0 - 0.5*dt); // dampens angular velocity a bit to keep the simlation stable
             *orientation_vector += self.angular_vel * dt; // changes the orientation vector passed in, in this case, Rocket's angle vector ang
         }
     }
@@ -375,8 +384,8 @@ mod rocket_sim {
                 };
 
                 let summed_velocity: f32 = self.vel.magnitude();
-                let reference_area: f32 = self.rotational.dimensions.x.powi(2) * PI;
-                let drag = 0.5 * self.drag_coefficient * FLUID_DENSITY * reference_area * summed_velocity;
+                let reference_area: f32 = (self.rotational.dimensions.x / 2.0).powi(2) * PI;
+                let drag = 0.5 * self.drag_coefficient * FLUID_DENSITY * reference_area * summed_velocity.powi(2);
 
                 let drag_force: Vec3f = Vec3f {
                     x: forward_vec.x * drag,
