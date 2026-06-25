@@ -28,13 +28,8 @@ mod rocket_sim {
             }
         }
 
-        #[staticmethod]
-        pub fn new_defined(x: f32, y: f32, z: f32) -> Self {
-            Self {
-                x,
-                y,
-                z,
-            }
+        pub fn redefine(&mut self, a: f32, b: f32, c: f32) {
+            *self = Self {x: a, y: b, z: c};
         }
     }
 
@@ -267,7 +262,7 @@ mod rocket_sim {
         ) -> Self {
             Self {
                 ang: Vec3f {
-                    x: PI / 2.0,
+                    x: (PI / 2.0) - 0.1,
                     y: 0.0,
                     z: 0.0,
                 },
