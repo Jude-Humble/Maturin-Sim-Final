@@ -68,6 +68,19 @@ mod rocket_sim {
         }
     }
 
+    use std::ops::Sub;
+    impl Sub<Vec3f> for Vec3f {
+        type Output = Vec3f;
+
+        fn sub(self, other: Vec3f) -> Self::Output {
+            Vec3f {
+                x: self.x - other.x,
+                y: self.y - other.y,
+                z: self.z - other.z,
+            }
+        }
+    }
+
     // do like the += thingy to Vec3f with another Vec3f
     use std::ops::AddAssign;
     impl AddAssign<Vec3f> for Vec3f {
@@ -365,19 +378,27 @@ mod rocket_sim {
                 let reference_area: f32 = self.rotational.dimensions.x.powi(2) * PI;
                 let drag = 0.5 * self.drag_coefficient * FLUID_DENSITY * reference_area * summed_velocity;
 
+                let drag_force: Vec3f = Vec3f {
+                    x: forward_vec.x * drag,
+                    y: forward_vec.y * drag,
+                    z: forward_vec.z * drag,
+                };   
+
                 let thrust_force = if self.powered { // thrust force is only calculated if the powered boolean is true
                     Vec3f {
-                        x: forward_vec.x * (self.thrust - drag),
-                        y: forward_vec.y * (self.thrust - drag),
-                        z: forward_vec.z * (self.thrust - drag),
+                        x: forward_vec.x * (self.thrust),
+                        y: forward_vec.y * (self.thrust),
+                        z: forward_vec.z * (self.thrust),
                     }
                 } else { // if not, it just sets it to the defualt vector values, which are all 0
                     Vec3f::new()
                 };
 
-                self.acc = (grav_force + thrust_force) / self.mass.mass; // calculated the acceleration vector of the rocket body
+                self.acc = (grav_force + thrust_force - drag_force) / self.mass.mass; // calculated the acceleration vector of the rocket body
                 self.vel += self.acc * self.dt; // calculates the velocity vector of the rocket body
                 self.pos += self.vel * self.dt; // calcuatles the position vector of the rocket body
+
+                println!("{:?}", self.acc);
 
                 // I used to define angle within this struct and not the rotational one, so I commented out the code. I might delete all these old blocks but I kind of like keeping them around
                 /*

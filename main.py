@@ -8,7 +8,7 @@ to_radians = 0.0174533
 
 wet_mass = 1.2  # mass of the rocket w/ all its fuel 
 dry_mass = 0.8  # mass of the rocket w/o all its fuel 
-dm = 0.1  # change in mass of the rocket due to fuel loss in kg/s 
+dm = 0.5  # change in mass of the rocket due to fuel loss in kg/s 
 thrust = 25  # thrust of the rocket motor in Newtons 
 time_step = 0.01  #  time step of the simulation as 1 / cycles per second
 duration = 2000  # maximum duration of the simulation in cycles. Simulation will end early if rocket goes below altitude of 0 meters 
@@ -27,7 +27,7 @@ dimensions.redefine(width, height, depth)
 rotational = rocket_sim.RotateStruct(cp, cg, cmp, rotational_drag_coefficient, dimensions, mass)
 
 #starting thrust vector in degrees
-tx = 45
+tx = -3
 ty = 0
 
 in_thrust = rocket_sim.Vec3f()
@@ -40,7 +40,7 @@ in_thrust.redefine(
 import matplotlib.pyplot as plt
 
 rocket = rocket_sim.Rocket(mass, dm, rotational, thrust, time_step, duration, in_thrust, drag_coefficient)
-rocket.uncontrolled_sim()()
+rocket.uncontrolled_sim()
 # test.print_history()
 
 # get history method syntax is Rocket::get_history(tip: i8, id: i8) -> PyResult<Vec<f32>>
