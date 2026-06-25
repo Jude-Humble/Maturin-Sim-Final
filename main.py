@@ -40,7 +40,7 @@ in_thrust.redefine(
 import matplotlib.pyplot as plt
 
 rocket = rocket_sim.Rocket(mass, dm, rotational, thrust, time_step, duration, in_thrust, drag_coefficient)
-rocket.uncontrolled_sim()
+rocket.uncontrolled_sim()()
 # test.print_history()
 
 # get history method syntax is Rocket::get_history(tip: i8, id: i8) -> PyResult<Vec<f32>>
