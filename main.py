@@ -15,7 +15,8 @@ duration = 2000  # maximum duration of the simulation in cycles. Simulation will
 cp = 0.65 # center of pressure for drag from the top of rocket in meters. Drag has yet to be integrated so don't worry abt this. You can leave it how it is 
 cg = 0.45 # center of gravity of the rocket from the top of the rocket in meters. This is dynamic rn but I hope to make it dynamic in the future
 cmp = 0.5 # center of pressure imposed by the rocket engine measured from the top in meters. Used in the calculation of the moment on the rocket body during flight
-drag_coefficient = 0.5 # drag coefficient of the rocket in general. Drag is currently not being utilized so this value also doesn't matter that much. Just make sure to put something in so the code doesn't freak out
+rotational_drag_coefficient = 0.47 # the drag coefficient of the rocket body from the side. Usually a cylinder
+drag_coefficient = 0.5 # drag coefficient of the rocket in general. 
 width = 0.08 # width of the rocket in meters. Basically the diameter 
 height = 1.0 # height of the rocket in meters 
 depth = 0.08 # depth of the rocket in meters. Also basically the diameter 
@@ -23,7 +24,7 @@ depth = 0.08 # depth of the rocket in meters. Also basically the diameter
 mass = rocket_sim.MassStruct(dry_mass, wet_mass,) # initialization of the mass struct for the rocket
 dimensions = rocket_sim.Vec3f() # initialilzation of the rocket dimensions vector used for organization. I had to define it and then change it later because pyo3 was being fussy with having multiple constructors
 dimensions.redefine(width, height, depth)
-rotational = rocket_sim.RotateStruct(cp, cg, cmp, drag_coefficient, dimensions, mass)
+rotational = rocket_sim.RotateStruct(cp, cg, cmp, rotational_drag_coefficient, dimensions, mass)
 
 #starting thrust vector in degrees
 tx = 45
@@ -38,8 +39,8 @@ in_thrust.redefine(
 
 import matplotlib.pyplot as plt
 
-rocket = rocket_sim.Rocket(mass, dm, rotational, thrust, time_step, duration, in_thrust)
-rocket.uncontrolled_sim
+rocket = rocket_sim.Rocket(mass, dm, rotational, thrust, time_step, duration, in_thrust, drag_coefficient)
+rocket.uncontrolled_sim()
 # test.print_history()
 
 # get history method syntax is Rocket::get_history(tip: i8, id: i8) -> PyResult<Vec<f32>>
@@ -52,6 +53,7 @@ rocket.uncontrolled_sim
 # 3 => ang (converted to degrees for readability)
 # 4 => mass
 # 5 => thrust_vec (unit vector for thrust)
+# 6 => drag as a force, not vector
 # and the ids can be assumed for all other than mass to be 0: x, 1: y, 2: z
 pos_height = rocket.get_history(0, 1)
 pos_x = rocket.get_history(0, 0)
@@ -63,6 +65,7 @@ thrust_y = rocket.get_history(5, 1)
 orient_z = rocket.get_history(3, 2)
 orient_y = rocket.get_history(3, 1)
 orient_x = rocket.get_history(3, 0)
+get_drag = rocket.get_history(6, 0)
 
 plt.figure()
 plt.plot(pos_height, label="height")
@@ -93,3 +96,9 @@ plt.plot(orient_z, label="z axis")
 plt.legend()
 plt.savefig("orientation_data.png")
 plt.close()
+
+plt.figure()
+plt.plot(get_drag, label="drag")
+plt.legend
+plt.savefig("drag_chart.png")
+plt.close

@@ -8,6 +8,7 @@ mod rocket_sim {
     use pyo3::prelude::*;
 
     const G: f32 = -9.81;
+    const FLUID_DENSITY: f32 = 1.225;
 
     #[derive(Copy, Clone, Debug)]
     #[pyclass] // pyo3 attribute for classes usable in python
@@ -133,6 +134,14 @@ mod rocket_sim {
                 z: first.x * second.y - first.y * second.x,
             }
         }
+
+        pub fn magnitude(&self) -> f32 { // takes the magnitude of a Vec3f struct
+                f32::sqrt(
+                self.x.powi(2) + 
+                self.y.powi(2) + 
+                self.z.powi(2)
+            )
+        }
     }
 
     #[pyclass]
@@ -168,6 +177,7 @@ mod rocket_sim {
         thrust: f32, // current thrust of the rocket
         time: f32, // current time step NOT IN SECONDS
         thrust_vec: Vec3f, // the unit vector of the rocket engine relative to the rocket body
+        drag: f32,
     }
 
     // like the mass struct but stores all the information pertaining to rotation
@@ -177,7 +187,7 @@ mod rocket_sim {
         cp: f32, // center of pressure from top
         cg: f32, // center of gravity from top
         cmp: f32, // point of pressure from motor from top
-        drag_coefficient: f32, // drag coefficient
+        rotational_drag_coefficient: f32, // drag coefficient of the top of the rocket. Usually a cone
         body_vector: Vec3f, // vector used for torque calculations
         dimensions: Vec3f,  // dimensions of the rocket
         inertia_moment: f32, // moment of inertia in the horizontal axis. Probably should make this a Vec3f
@@ -196,7 +206,7 @@ mod rocket_sim {
             cp: f32,
             cg: f32,
             cmp: f32,
-            drag_coefficient: f32,
+            rotational_drag_coefficient: f32,
             dimensions: Vec3f,
             mass: MassStruct,
         ) -> Self {
@@ -204,7 +214,7 @@ mod rocket_sim {
                 cp,
                 cg,
                 cmp,
-                drag_coefficient,
+                rotational_drag_coefficient,
                 dimensions,
                 inertia_moment: (1.0 / 12.0) * mass.mass * (dimensions.x.powi(2) + dimensions.y.powi(2)), // moment of intertia formula for a cylinder
                 angular_vel: Vec3f::new(),
@@ -271,6 +281,7 @@ mod rocket_sim {
         state_history: Vec<RocketState>, // history vector of the simulation, used for logging purposes
         powered: bool, // bool for whether the rocket is powered or not. Just used for organization purposes
         thrust_vec: Vec3f, // unit vector for the direction of the rocket engine relative to the rocket body
+        drag_coefficient: f32,
     }
 
     #[pymethods]
@@ -285,6 +296,7 @@ mod rocket_sim {
             dt: f32,
             dur: i32,
             thrust_vec: Vec3f,
+            drag_coefficient: f32
         ) -> Self {
             Self {
                 ang: Vec3f {
@@ -304,6 +316,7 @@ mod rocket_sim {
                 powered: true,
                 rotational: rotate,
                 thrust_vec,
+                drag_coefficient,
             }
         }
 
@@ -348,11 +361,15 @@ mod rocket_sim {
                     z: 0.0,
                 };
 
+                let summed_velocity: f32 = self.vel.magnitude();
+                let reference_area: f32 = self.rotational.dimensions.x.powi(2) * PI;
+                let drag = 0.5 * self.drag_coefficient * FLUID_DENSITY * reference_area * summed_velocity;
+
                 let thrust_force = if self.powered { // thrust force is only calculated if the powered boolean is true
                     Vec3f {
-                        x: forward_vec.x * self.thrust,
-                        y: forward_vec.y * self.thrust,
-                        z: forward_vec.z * self.thrust,
+                        x: forward_vec.x * (self.thrust - drag),
+                        y: forward_vec.y * (self.thrust - drag),
+                        z: forward_vec.z * (self.thrust - drag),
                     }
                 } else { // if not, it just sets it to the defualt vector values, which are all 0
                     Vec3f::new()
@@ -381,6 +398,7 @@ mod rocket_sim {
                     thrust: self.thrust,
                     time: i as f32 * self.dt,
                     thrust_vec: self.thrust_vec,
+                    drag,
                 });
 
                 // checks if the rocket still has any fuel left. If it doesn't than the rocket power is set to false
@@ -462,6 +480,7 @@ mod rocket_sim {
                     2 => Ok(self.state_history.iter().map(|s| s.thrust_vec.z).collect()),
                     _ => Err(PyValueError::new_err("Invalid get_history fetch ID"))?,
                 }
+                6 => Ok(self.state_history.iter().map(|s| s.drag).collect()),
                 _ => Err(PyValueError::new_err("Invalid get_history fetch type")),
             }
         }
