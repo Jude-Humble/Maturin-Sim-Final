@@ -199,8 +199,7 @@ mod rocket_sim {
     struct RotateStruct {
         cp: f32, // center of pressure from top
         cg: f32, // center of gravity from top
-        cmp: f32, // point of pressure from motor from top
-        rotational_drag_coefficient: f32, // drag coefficient of the top of the rocket. Usually a cone
+        cmp: f32, // point of pressure from motor from top // drag coefficient of the top of the rocket. Usually a cone
         body_vector: Vec3f, // vector used for torque calculations
         dimensions: Vec3f,  // dimensions of the rocket
         inertia_moment: f32, // moment of inertia in the horizontal axis. Probably should make this a Vec3f
@@ -219,8 +218,7 @@ mod rocket_sim {
         pub fn new(
             cp: f32,
             cg: f32,
-            cmp: f32,
-            rotational_drag_coefficient: f32,
+            cmp: f32, 
             dimensions: Vec3f,
             mass: MassStruct,
             dampening_constant: f32,
@@ -229,7 +227,6 @@ mod rocket_sim {
                 cp,
                 cg,
                 cmp,
-                rotational_drag_coefficient,
                 dimensions,
                 inertia_moment: (1.0 / 12.0) * mass.mass * (dimensions.x.powi(2) + dimensions.y.powi(2)), // moment of intertia formula for a cylinder
                 angular_vel: Vec3f::new(),
@@ -251,12 +248,7 @@ mod rocket_sim {
 
         // method that'll simulate the rotational phsics of the rocket
         pub fn rotate_physics(&mut self, orientation_vector: &mut Vec3f, thrust_vector: &Vec3f, thrust: f32, dt: f32) {
-            let drag_force: Vec3f = Vec3f {
-                x: -0.5 * FLUID_DENSITY * self.rotational_drag_coefficient * self.angular_vel.x.abs() * self.angular_vel.x,
-                y: -0.5 * FLUID_DENSITY * self.rotational_drag_coefficient * self.angular_vel.y.abs() * self.angular_vel.y,
-                z: -0.5 * FLUID_DENSITY * self.rotational_drag_coefficient * self.angular_vel.z.abs() * self.angular_vel.z,
-            };
-            let force = drag_force + (*thrust_vector * thrust); // total force vector, multiplying the unit vector known as thrust_vector by the actual thrust
+            let force = *thrust_vector * thrust; // total force vector, multiplying the unit vector known as thrust_vector by the actual thrust
             let torque = Vec3f::refcross(&self.body_vector, &force); // takes the torque between the rocket body and the thrust force
             let drag_torque = self.angular_vel * - self.dampening_constant; // 0.001 is the dampening constant K. Changing this will change the stability fo the rocket
             let total_torque = torque + drag_torque;
@@ -387,11 +379,15 @@ mod rocket_sim {
                 let reference_area: f32 = (self.rotational.dimensions.x / 2.0).powi(2) * PI;
                 let drag = 0.5 * self.drag_coefficient * FLUID_DENSITY * reference_area * summed_velocity.powi(2);
 
-                let drag_force: Vec3f = Vec3f {
-                    x: forward_vec.x * drag,
-                    y: forward_vec.y * drag,
-                    z: forward_vec.z * drag,
-                };   
+                let drag_force = if summed_velocity > 0.0001 {
+                    Vec3f {
+                        x: -self.vel.x / summed_velocity * drag,
+                        y: -self.vel.y / summed_velocity * drag,
+                        z: -self.vel.z / summed_velocity * drag,
+                    }
+                } else {
+                    Vec3f::new()
+                };
 
                 let thrust_force = if self.powered { // thrust force is only calculated if the powered boolean is true
                     Vec3f {
@@ -403,7 +399,7 @@ mod rocket_sim {
                     Vec3f::new()
                 };
 
-                self.acc = (grav_force + thrust_force - drag_force) / self.mass.mass; // calculated the acceleration vector of the rocket body
+                self.acc = (grav_force + thrust_force + drag_force) / self.mass.mass; // calculated the acceleration vector of the rocket body
                 self.vel += self.acc * self.dt; // calculates the velocity vector of the rocket body
                 self.pos += self.vel * self.dt; // calcuatles the position vector of the rocket body
 

@@ -11,11 +11,10 @@ dry_mass = 0.5  # mass of the rocket w/o all its fuel
 dm = 0.1  # change in mass of the rocket due to fuel loss in kg/s 
 thrust = 25  # thrust of the rocket motor in Newtons 
 time_step = 0.01  #  time step of the simulation as 1 / cycles per second
-duration = 2000  # maximum duration of the simulation in cycles. Simulation will end early if rocket goes below altitude of 0 meters 
+duration = 5000  # maximum duration of the simulation in cycles. Simulation will end early if rocket goes below altitude of 0 meters 
 cp = 0.65 # center of pressure for drag from the top of rocket in meters. Drag has yet to be integrated so don't worry abt this. You can leave it how it is 
 cg = 0.45 # center of gravity of the rocket from the top of the rocket in meters. This is dynamic rn but I hope to make it dynamic in the future
 cmp = 0.5 # center of pressure imposed by the rocket engine measured from the top in meters. Used in the calculation of the moment on the rocket body during flight
-rotational_drag_coefficient = 0.47 # the drag coefficient of the rocket body from the side. Usually a cylinder
 drag_coefficient = 0.5 # drag coefficient of the rocket in general. 
 width = 0.08 # width of the rocket in meters. Basically the diameter 
 height = 1.0 # height of the rocket in meters 
@@ -25,10 +24,10 @@ rotational_dampening_constant = 0.001 # the dampening constant used in the calcu
 mass = rocket_sim.MassStruct(dry_mass, wet_mass,) # initialization of the mass struct for the rocket
 dimensions = rocket_sim.Vec3f() # initialilzation of the rocket dimensions vector used for organization. I had to define it and then change it later because pyo3 was being fussy with having multiple constructors
 dimensions.redefine(width, height, depth)
-rotational = rocket_sim.RotateStruct(cp, cg, cmp, rotational_drag_coefficient, dimensions, mass, rotational_dampening_constant)
+rotational = rocket_sim.RotateStruct(cp, cg, cmp, dimensions, mass, rotational_dampening_constant)
 
 #starting thrust vector in degrees
-tx = -10
+tx = -0.1
 ty = 0
 
 in_thrust = rocket_sim.Vec3f()
