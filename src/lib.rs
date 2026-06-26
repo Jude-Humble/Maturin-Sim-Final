@@ -158,6 +158,42 @@ mod rocket_sim {
     }
 
     #[pyclass]
+    struct PidController {
+        kp: f32,
+        kd: f32,
+        ki: f32,
+        integral: f32,
+        derivative: f32,
+        target: f32,
+        prev_err: f32,
+    }
+
+    #[pymethods]
+    impl PidController {
+        #[new]
+        pub fn new(kp: f32, kd: f32, ki: f32, target: f32) -> Self {
+            Self {
+                kp,
+                kd,
+                ki,
+                target,
+                prev_err: target,
+                derivative: 0.0,
+                integral: 0.0,
+            }
+        }
+
+        pub fn run_pid(&mut self, reference: f32, dt: f32) -> f32 {
+            self.integral += reference * dt;
+            self.derivative = (reference - self.prev_err) / dt;
+            self.prev_err = reference;
+            (-0.00001 * self.kp * reference)
+            + (-0.00001 * self.integral * self.ki)
+            + (-0.00001 * self.derivative * self.kd)
+        }
+    }
+
+    #[pyclass]
     #[derive(Clone, Copy)]
     // input struct to make the initialization of rocket more clean. This is initialized in python
     struct MassStruct {
@@ -260,25 +296,6 @@ mod rocket_sim {
 
     use std::f32::consts::PI; // imports PI because I'm too lazy to type it out
 
-    // this commented out code was a method block for Rocket state, although its un-needed. I decided to keep it anyway for documenting purposes or something like that
-    /*impl RocketState {
-        pub fn new() -> Self {
-            Self {
-                ang: Vec3f {
-                    x: PI / 2.0,
-                    y: 0.0,
-                    z: 0.0,
-                },
-                pos: Vec3f::new(),
-                vel: Vec3f::new(),
-                acc: Vec3f::new(),
-                mass: 0.0,
-                thrust: 0.0,
-                time: 0.0,
-            }
-        }
-    }*/
-
     #[pyclass]
     // struct of the main rocket. This is where everything is brought together >:)
     struct Rocket {
@@ -314,7 +331,7 @@ mod rocket_sim {
         ) -> Self {
             Self {
                 ang: Vec3f {
-                    x: (PI / 2.0) - 0.1,
+                    x: (PI / 2.0),
                     y: 0.0,
                     z: 0.0,
                 },
@@ -342,17 +359,6 @@ mod rocket_sim {
             )
         }
 
-        // used at the very beginning to test the compatability between the rust and python files
-        /*#[staticmethod]
-        pub fn rand_pos_vec() -> PyResult<Vec<i32>> {
-            use rand::Rng;
-            let mut utvec: Vec<i32> = vec![0];
-            let mut rng = rand::thread_rng();
-            for i in 1..10 {
-                utvec.push(rng.gen_range(0..=50));
-            }
-            Ok(utvec)
-        }*/
 
         // this is where all the translational magic happens
         pub fn uncontrolled_sim(&mut self) {
@@ -403,15 +409,7 @@ mod rocket_sim {
                 self.vel += self.acc * self.dt; // calculates the velocity vector of the rocket body
                 self.pos += self.vel * self.dt; // calcuatles the position vector of the rocket body
 
-                println!("{:?}", self.acc);
-
-                // I used to define angle within this struct and not the rotational one, so I commented out the code. I might delete all these old blocks but I kind of like keeping them around
-                /*
-                self.ang = Vec3f {
-                    x: self.vel.y.atan2(self.vel.x),
-                    y: self.vel.x.atan2(self.vel.y),
-                    z: 0.0,
-                };*/
+                println!("{:?}", self.ang);
 
                 self.rotational.rotate_physics(&mut self.ang, &mut self.thrust_vec, self.thrust, self.dt); // calls the rotation simulation method defined above
 

@@ -19,7 +19,7 @@ drag_coefficient = 0.5 # drag coefficient of the rocket in general.
 width = 0.08 # width of the rocket in meters. Basically the diameter 
 height = 1.0 # height of the rocket in meters 
 depth = 0.08 # depth of the rocket in meters. Also basically the diameter 
-rotational_dampening_constant = 0.001 # the dampening constant used in the calculation of the drag torque inacted on the rocket body
+rotational_dampening_constant = 0.01 # the dampening constant used in the calculation of the drag torque inacted on the rocket body
 
 mass = rocket_sim.MassStruct(dry_mass, wet_mass,) # initialization of the mass struct for the rocket
 dimensions = rocket_sim.Vec3f() # initialilzation of the rocket dimensions vector used for organization. I had to define it and then change it later because pyo3 was being fussy with having multiple constructors
@@ -27,7 +27,7 @@ dimensions.redefine(width, height, depth)
 rotational = rocket_sim.RotateStruct(cp, cg, cmp, dimensions, mass, rotational_dampening_constant)
 
 #starting thrust vector in degrees
-tx = -0.1
+tx = 0.5
 ty = 0
 
 in_thrust = rocket_sim.Vec3f()
